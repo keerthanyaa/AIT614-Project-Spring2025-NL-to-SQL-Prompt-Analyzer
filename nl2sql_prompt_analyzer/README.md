@@ -48,7 +48,7 @@ nl2sql_prompt_analyzer/
 │
 ├── tests/            # Unit and integration tests (Optional)
 │
-├── logs/             # Directory where .log files are written
+├── logs/             # Directory where .log files are written local logs (during development, can be removed later)
 │
 ├── datasets/         # Placeholder for storing small datasets or schema files
 │
