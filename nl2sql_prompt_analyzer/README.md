@@ -23,12 +23,6 @@ nl2sql_prompt_analyzer/
 ├── app/              # Contains the main Streamlit user interface code
 │   └── main_streamlit.py # Entry point for the Streamlit application
 │
-├── core/             # Core logic for the NL2SQL process
-│   ├── prompt_generator.py # Logic for creating different prompt types
-│   ├── llm_interface.py    # Wrapper for interacting with LLMs
-│   ├── sql_executor.py     # Logic for validating and executing SQL queries
-│   └── evaluator.py        # Logic for calculating EM and ExecAcc scores
-│
 ├── data_handling/    # Utilities for loading datasets and schemas
 │   ├── dataset_loader.py   # Functions to load/access dataset info
 │   └── schema_utils.py     # Functions to fetch/format schema data for prompts
@@ -38,6 +32,13 @@ nl2sql_prompt_analyzer/
 │
 ├── experiments/      # Scripts for running automated batch experiments
 │   └── run_experiments.py  # Main script to run evaluation batches
+├── graph_logic/          # <<< NEW DIRECTORY FOR LANGGRAPH COMPONENTS
+│   ├── __init__.py
+│   ├── state.py          # Defines the graph state
+│   ├── prompts.py        # Prompt templates/logic
+│   ├── schema.py         # Schema fetching/formatting
+│   ├── sql_gen.py        # Node for calling LLM to generate SQL
+│   └── graph.py          # Node definitions and graph assembly
 │
 ├── analysis/         # Jupyter notebooks or scripts for analyzing results
 │   └── result_analyzer.ipynb # Example notebook for analysis

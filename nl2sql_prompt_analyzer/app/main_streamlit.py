@@ -19,6 +19,39 @@ from config.logging_config import setup_logging
 # from storage.db_handler import get_datasets, log_result, fetch_evaluation_results, fetch_run_history # Examples
 # -----------------------------------------------
 
+
+# --- Add project root to path ---
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+# ----------------------------------
+
+
+# --- Initialize Session State ---
+# Initialize all keys we will use to persist state across reruns
+if 'show_feedback' not in st.session_state:
+    st.session_state.show_feedback = False
+if 'current_query_context' not in st.session_state:
+    st.session_state.current_query_context = {}
+if 'results_ready' not in st.session_state: # Flag to know if results area should be shown
+    st.session_state.results_ready = False
+if 'last_prompt' not in st.session_state:
+    st.session_state.last_prompt = None
+if 'last_sql' not in st.session_state:
+    st.session_state.last_sql = None
+if 'last_em_score' not in st.session_state:
+    st.session_state.last_em_score = "N/A"
+if 'last_exec_acc_score' not in st.session_state:
+    st.session_state.last_exec_acc_score = "N/A"
+if 'last_duration' not in st.session_state:
+    st.session_state.last_duration = 0.0
+# Initialize feedback widget states if needed (might help consistency)
+if 'feedback_rating_slider' not in st.session_state:
+    st.session_state.feedback_rating_slider = "OK"
+if 'feedback_issues_multi' not in st.session_state:
+    st.session_state.feedback_issues_multi = []
+if 'feedback_comment_combo' not in st.session_state:
+    st.session_state.feedback_comment_combo = ""
+# --------------------------------
 # --- Setup Logging ---
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -29,7 +62,8 @@ logger = logging.getLogger(__name__)
 st.set_page_config(layout="wide")
 st.title("NL2SQL Prompt Engineering Analyzer")
 
-logger.info("Streamlit app started.")
+
+# logger.info("="*20 + " Streamlit App Started/Refreshed " + "="*20) # Clear marker for app start/rerun
 
 # --- Sidebar for Global Configuration ---
 with st.sidebar:
@@ -54,131 +88,172 @@ with tab1:
     nl_query = st.text_area("Your question:", height=100, placeholder="e.g., Show me the total sales per region for 'Electronics'.", key="nl_query_input")
 
     if st.button("Generate SQL", key="generate_sql_button"):
+        # Reset state for new query generation attempt
+        st.session_state.results_ready = False
+        st.session_state.show_feedback = False
         if not nl_query:
             st.warning("Please enter a natural language query.")
+            logger.warning("Generate SQL clicked with empty query.") # Log warning
+
         else:
-            logger.info(f"Generating SQL for query: '{nl_query}' using {selected_prompt_type} on {selected_dataset} with {selected_llm}")
-
-            start_time = time.perf_counter() # <<< Start timer
-            prompt = None
-            generated_sql = None
-            em_score = "N/A"
-            exec_acc_score = "N/A"
-
+            
+            # --- Log Start Marker and Context ---
+            logger.info("--- Begin Generate User Query ---")
+            logger.info(f"Parameters: Dataset='{selected_dataset}', PromptType='{selected_prompt_type}', LLM='{selected_llm}'")
+            logger.info(f"NL Query: '{nl_query}'")
+            # -------------------------------------
+            start_time = time.perf_counter()
             try:
-                # Wrap the core logic in a spinner
-                with st.spinner("Generating SQL query... Please wait."): # <<< Add spinner
-                    # --- 1. Generate Prompt (Placeholder) ---
-                    logger.debug(f"Generating prompt using type: {selected_prompt_type}")
-                    # prompt = generate_prompt(nl_query, selected_prompt_type, selected_dataset) # Replace with actual call
+                with st.spinner("Generating SQL query... Please wait."):
+                    # --- Simulate generation ---
+                    logger.info("Simulating backend call (Prompt Gen + LLM Query)...") # INFO level for key step
+
+
+                    # Call the LLM functions setup 
+                    # .
+                    # .
+                    # .
+                    time.sleep(3)
+
+
                     prompt = f"Placeholder prompt for '{nl_query}' using {selected_prompt_type} on {selected_dataset}"
-                    logger.debug("Prompt generation placeholder complete.")
-
-                    # --- 2. Query LLM (Placeholder) ---
-                    logger.debug(f"Querying LLM: {selected_llm}")
-                    # generated_sql = query_llm(prompt, selected_llm) # Replace with actual call
                     generated_sql = f"SELECT 'placeholder_sql' FROM {selected_dataset} WHERE condition = '{nl_query[:20]}...';"
-                    logger.debug("LLM query placeholder complete.")
-
-                    # --- Simulate backend processing time ---
-                    time.sleep(3) # <<< Simulate 3 seconds delay
-                    # -----------------------------------------
-
-                    # --- 3. Evaluate SQL (Placeholder) ---
-                    # This would happen after generation in a real scenario, kept here for placeholder structure
-                    logger.debug("Evaluating SQL (Placeholder - requires ground truth)")
                     em_score = "N/A (Needs Ground Truth)"
                     exec_acc_score = "N/A (Needs Ground Truth & Execution)"
-                    logger.debug("Evaluation placeholder complete.")
 
-                # --- End of spinner ---
+                    logger.info("Simulation complete.")
+                    # --------------------------
 
-                end_time = time.perf_counter() # <<< End timer
-                duration = end_time - start_time # <<< Calculate duration
+                end_time = time.perf_counter()
+                duration = end_time - start_time
+                st.success("Processing complete!")
 
-                st.success("Processing complete!") # Indicate spinner finished
+                # --- Store results in session state to persist across reruns ---
+                st.session_state.last_prompt = prompt
+                st.session_state.last_sql = generated_sql
+                st.session_state.last_em_score = em_score
+                st.session_state.last_exec_acc_score = exec_acc_score
+                st.session_state.last_duration = duration
+                st.session_state.results_ready = True # Mark results as ready
+                st.session_state.show_feedback = True # Enable feedback section
 
-                # --- Display results ---
-                st.text_area("Generated Prompt:", prompt, height=150, key="prompt_display")
-                st.text_area("Generated SQL:", generated_sql, height=150, key="sql_display")
-                st.markdown(f"**Evaluation (Placeholders for this query):**")
-                st.write(f"- Exact Match (EM) Score: {em_score}")
-                st.write(f"- Execution Accuracy (ExecAcc) Score: {exec_acc_score}")
-                st.caption(f"Processing time: {duration:.3f} seconds") # <<< Display processing time
+                # Store context for feedback logging/saving
+                st.session_state.current_query_context = {
+                    "nl_query": nl_query, "dataset": selected_dataset, "prompt_type": selected_prompt_type,
+                    "llm": selected_llm, "generated_sql": generated_sql, "prompt": prompt,
+                    "duration_sec": duration # Add result_id later if available
+                }
 
-                # --- 4. Log Results (Placeholder) ---
-                logger.debug("Logging results to database (Placeholder)")
-                # log_result(..., latency_ms=int(duration*1000)) # Include duration when logging
+                # --- Log Results (Placeholder) ---
+                logger.debug("Logging results to database ",{
+                    "nl_query": nl_query, "dataset": selected_dataset, "prompt_type": selected_prompt_type,
+                    "llm": selected_llm, "generated_sql": generated_sql, "prompt": prompt,
+                    "duration_sec": duration # Add result_id later if available
+                })
+                # result_id = log_result(**st.session_state.current_query_context)
+                # st.session_state.current_query_context['result_id'] = result_id
                 st.info("Results logged (simulated).")
 
-
             except Exception as e:
-                end_time = time.perf_counter() # Still record end time on error if possible
+                # Handle errors, ensure state reflects no results/feedback
+                st.session_state.results_ready = False
+                st.session_state.show_feedback = False
+                end_time = time.perf_counter()
                 duration = end_time - start_time
-                logger.error(f"An error occurred: {e}", exc_info=True) # Log full traceback
+                logger.error(f"An error occurred during query generation: {e}", exc_info=True)
                 st.error(f"An error occurred during processing: {e}")
                 st.caption(f"Processing time before error: {duration:.3f} seconds")
 
-        # --- Feedback Section (Conditional Display) ---
-        if st.session_state.get('show_feedback', False):
-            st.divider()
-            st.subheader("Feedback on Generated SQL")
+    # --- Display Results Area (Conditional based on session state) ---
+    # This section now runs on *every* rerun, displaying results if they are marked ready
+    if st.session_state.get('results_ready', False):
+        st.markdown("---") # Add a separator
+        st.subheader("Generated Output")
+        st.text_area("Generated Prompt:", st.session_state.last_prompt, height=150, key="prompt_display_state", disabled=True) # Disable to prevent edits
+        st.text_area("Generated SQL:", st.session_state.last_sql, height=150, key="sql_display_state", disabled=True) # Disable to prevent edits
+        st.markdown(f"**Evaluation (Placeholders for this query):**")
+        st.write(f"- Exact Match (EM) Score: {st.session_state.last_em_score}")
+        st.write(f"- Execution Accuracy (ExecAcc) Score: {st.session_state.last_exec_acc_score}")
+        st.caption(f"Processing time: {st.session_state.last_duration:.3f} seconds")
 
-            # Use columns for layout if needed, radio is often fine on its own
-            feedback_rating = st.radio(
-                "Rate the generated SQL:",
-                ("Good 👍", "Bad 👎", "Not Sure"),
-                key="feedback_rating",
-                horizontal=True,
-                index=None # Nothing selected by default
+    
+
+    # --- Feedback Section (Conditional based on session state) ---
+    # This condition is checked independently of results display
+    if st.session_state.get('show_feedback', False):
+        st.divider()
+        st.subheader("Feedback on Generated SQL")
+
+        # Using Option 3 (Combination) from previous suggestions
+        rating_options = ["Very Bad", "Bad", "OK", "Good", "Very Good"]
+        feedback_rating = st.select_slider(
+            "Overall rating:",
+            options=rating_options,
+            key="feedback_rating_slider" # Session state handles value persistence
+        )
+
+        selected_issues = [] # Default to empty list
+        if st.session_state.feedback_rating_slider != "Very Good": # Check state directly
+            issue_categories = [
+                "Incorrect Table(s)", "Incorrect Column(s)", "Wrong Aggregation",
+                "Incorrect Filter/WHERE", "Syntax Error", "Doesn't Answer Question", "Other"
+            ]
+            selected_issues = st.multiselect(
+                "Select issue categories (optional):",
+                options=issue_categories,
+                key="feedback_issues_multi" # Session state handles value persistence
             )
 
-            feedback_comment = st.text_area(
-                "Optional comments (e.g., why it was good/bad, suggested correction):",
-                key="feedback_comment",
-                height=100
-            )
+        feedback_comment = st.text_area(
+            "Optional comments (corrections, explanations):",
+            key="feedback_comment_combo", # Session state handles value persistence
+            height=100
+        )
 
-            if st.button("Submit Feedback", key="submit_feedback_button"):
-                if feedback_rating is None:
-                    st.warning("Please select a rating (Good/Bad/Not Sure).")
-                else:
-                    # Log feedback
-                    logger.info(f"Feedback received: Rating='{feedback_rating}', Comment='{feedback_comment}'")
-                    logger.info(f"Feedback context: {st.session_state.current_query_context}") # Log context
+        if st.button("Submit Feedback", key="submit_feedback_button_combo"):
+            # Log and save feedback using values directly from session state keys
+            rating_value = st.session_state.feedback_rating_slider
+            issues_value = st.session_state.feedback_issues_multi
+            comment_value = st.session_state.feedback_comment_combo
 
-                    # Placeholder for saving feedback
-                    try:
-                        # save_feedback(
-                        #     context=st.session_state.current_query_context, # Pass context
-                        #     rating=feedback_rating,
-                        #     comment=feedback_comment
-                        # ) # Needs implementation in db_handler
-                        st.success("Thank you for your feedback! (Saved - simulated)")
-                        # Hide the form after successful submission
-                        st.session_state.show_feedback = True
-                        # Clear the widgets for the next run (Streamlit might handle this on rerun)
-                        st.session_state.feedback_rating = None
-                        st.session_state.feedback_comment = ""
-                        st.experimental_rerun() # Force rerun to clear widgets cleanly
+            # Logging functions
+            logger.info("Displaying generated output to the user.")
+            logger.info(f"Scores: EM={st.session_state.last_em_score}, ExecAcc={st.session_state.last_exec_acc_score}. Duration={st.session_state.last_duration:.3f}s")
+            
+            logger.info(f"Feedback received: Rating='{rating_value}', Issues='{issues_value}', Comment='{comment_value}'")
+            logger.info(f"Feedback context: {st.session_state.current_query_context}")
 
-                    except Exception as e:
-                        logger.error(f"Failed to save feedback: {e}", exc_info=True)
-                        st.error("Sorry, there was an issue saving your feedback.")
+            try:
+                # save_feedback(...) using rating_value, issues_value, comment_value
+                st.success("Thank you for your feedback! (Saved - simulated)")
+                st.session_state.show_feedback = False # Hide form
+                st.session_state.results_ready = False # Also hide results? Or keep them? Decide behaviour. Let's hide results too.
+                # Reset feedback widgets for next time (optional, rerun helps)
+                ### UNCOMMENT BELOW 
+                # st.session_state.feedback_rating_slider = "OK"
+                # st.session_state.feedback_issues_multi = []
+                # st.session_state.feedback_comment_combo = ""
+                ### UNCOMMENT ABOVE
+                logger.info("Feedback Saved.")
+                logger.info("---END of Generate SQL Query---")
+
+            except Exception as e:
+                logger.error(f"Failed to save feedback: {e}", exc_info=True)
+                st.error("Sorry, there was an issue saving your feedback.")
 
 # --- Tab 2: Evaluation Analytics ---
-with tab2:
-    st.header("Analyze Experiment Results")
-    st.write("View aggregated metrics and comparisons from completed experiment runs.")
-    st.info("This section will display analytics once experiment data is logged in the database.")
+# with tab2:
+#     st.header("Analyze Experiment Results")
+#     st.write("View aggregated metrics and comparisons from completed experiment runs.")
+#     st.info("This section will display analytics once experiment data is logged in the database.")
 
-    st.subheader("Overall Performance Metrics (Placeholder)")
-    st.write("Average EM/ExecAcc scores per prompt type, dataset, etc. will be shown here.")
-    # Placeholder for fetching and displaying aggregated data...
+#     st.subheader("Overall Performance Metrics (Placeholder)")
+#     st.write("Average EM/ExecAcc scores per prompt type, dataset, etc. will be shown here.")
+#     # Placeholder for fetching and displaying aggregated data...
 
-    st.subheader("Performance Comparison Charts (Placeholder)")
-    st.write("Bar charts comparing prompt techniques or performance across datasets will be displayed here.")
-    # Placeholder for creating charts...
+#     st.subheader("Performance Comparison Charts (Placeholder)")
+#     st.write("Bar charts comparing prompt techniques or performance across datasets will be displayed here.")
+#     # Placeholder for creating charts...
 
 
 # --- Tab 3: Run History ---
