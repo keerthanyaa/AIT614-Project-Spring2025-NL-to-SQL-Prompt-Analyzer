@@ -44,6 +44,8 @@ nl2sql_prompt_analyzer/
 │   └── result_analyzer.ipynb # Example notebook for analysis
 │
 ├── config/           # Configuration files
+│   └── .env             # .env provided by the user
+│   └── .env.example     # Setup example
 │   ├── settings.py         # Stores API keys, DB connection strings, model params
 │   └── logging_config.py   # Configures application logging
 │
@@ -101,7 +103,14 @@ streamlit run app/main_streamlit.py
 This will start the Streamlit server, and you can access the application through your web browser at the displayed local URL.
 
 Logging
+
 Application logs (including errors and informational messages) are configured in config/logging_config.py and are written to the logs/ directory (e.g., logs/nl2sql_analyzer.log) and also displayed on the console.
+
+To test the mongo-db connection : 
+
+```bash
+python -m storage.test_mongo_connection
+```
 
 ## Working Components
 
@@ -138,6 +147,21 @@ This section describes parts of the application that are implemented and functio
     * Captures submitted feedback details and the associated query context.
     * Records any errors encountered during graph execution or Streamlit processing.
 * **Purpose:** Provides essential visibility for debugging and understanding the step-by-step execution path, including the conditional logic flow within the LangGraph agent.
+
+### MongoDB Integration (`storage/db_handler.py`)
+
+* **Purpose:** MongoDB (Atlas) is used as the persistent storage backend for logging experiment run details and user feedback.
+* **Connection:**
+    * Connection logic is handled in `storage/db_handler.py`.
+    * The MongoDB connection string (`MONGODB_CONNECTION_URL`) is loaded securely from `config/.env` using `python-dotenv`.
+    * The `certifi` library is used to provide necessary CA certificates for successful TLS/SSL connections to Atlas.
+    * A standalone test script (`storage/test_mongo_connection.py`) is available to verify the connection logic independently (run via `python -m storage.test_mongo_connection` from the project root).
+* **Operations:**
+    * `log_result`: Saves the context (inputs, outputs, config, scores) of each NL2SQL run to the `experiment_runs` collection in the `nl2sql_analyzer` database. This is integrated into the Streamlit app (Tab 1) and triggers after a successful query generation.
+    * `save_feedback`: Updates the corresponding run document in `experiment_runs` with user feedback (rating, issues, comment). This is integrated into the feedback submission logic in the Streamlit app (Tab 1).
+    * `fetch_run_history`: Retrieves logged runs from the `experiment_runs` collection, supporting filtering. This is integrated into the Streamlit app (Tab 3) to display recent history by default and allow filtered searches.
+* **Status:** Connection, logging, feedback saving, and history fetching are implemented and integrated with the Streamlit UI. Data is successfully being written to and read from MongoDB Atlas.
+
 
 
 

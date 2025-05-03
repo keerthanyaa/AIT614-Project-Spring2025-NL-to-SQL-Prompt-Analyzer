@@ -4,3 +4,4 @@ streamlit
 pymongo
 python-dotenv
 langgraph
+certifi
