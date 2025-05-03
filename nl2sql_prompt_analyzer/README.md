@@ -128,7 +128,10 @@ This section describes parts of the application that are implemented and functio
     * Allows users to input a natural language query.
     * A button ("Run Generation & Evaluation") triggers the backend LangGraph workflow.
     * Displays a loading spinner during processing.
-    * Shows the generated Prompt and the (currently simulated) SQL output received from the graph.
+    * Shows the generated Prompt and the (currently simulated) SQL output received from the graph. use 
+```bash 
+python -m graph_logic.graphs
+```
     * Displays placeholder Evaluation Scores (EM/ExecAcc).
     * Includes an interactive **Feedback Section** (rating slider, issue selection, comments) that appears after generation; submitting feedback logs the input and context (simulated save).
 

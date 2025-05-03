@@ -73,11 +73,18 @@ st.title("NL2SQL Prompt Engineering Analyzer")
 # --- Sidebar for Global Configuration ---
 with st.sidebar:
     st.header("Configuration")
-    available_datasets = ["Spider_Dev", "WikiSQL_Test", "RealWorld_SalesDB"]
+    available_datasets = [
+        "sample-benchmark-manufacturing-cars",
+        "real-world-manufacturing-cars"
+    ]
     available_prompt_types = ["Zero-Shot", "Few-Shot", "Structured/Domain-Specific"]
     available_llms = ["GPT-4 (Placeholder)", "LLaMA-2 (Placeholder)"]
 
-    selected_dataset = st.selectbox("Select Dataset:", available_datasets)
+    selected_dataset = st.selectbox(
+        "Select Dataset:",
+        options=available_datasets, # Use the new list
+        key="sb_dataset" # Keep the key consistent
+    )
     selected_prompt_type = st.selectbox("Select Prompt Technique:", available_prompt_types)
     selected_llm = st.selectbox("Select LLM:", available_llms)
     st.divider()
@@ -127,7 +134,8 @@ with tab1:
                     graph_result_state = run_nl2sql_graph(
                         nl_query=nl_query,
                         prompt_strategy=selected_prompt_type,
-                        selected_llm=selected_llm
+                        selected_llm=selected_llm,
+                        dataset_name=selected_dataset
                     )
                     logger.info("Backend graph execution attempt complete.")
 
