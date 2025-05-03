@@ -287,9 +287,9 @@ with tab1:
                         st.session_state.show_feedback = False # Hide form
                         st.session_state.results_ready = False # Hide results
                         # Reset feedback widgets to defaults
-                        st.session_state.feedback_rating_slider = "OK"
-                        st.session_state.feedback_issues_multi = []
-                        st.session_state.feedback_comment_combo = ""
+                        # st.session_state.feedback_rating_slider = "OK"
+                        # st.session_state.feedback_issues_multi = []
+                        # st.session_state.feedback_comment_combo = ""
                         logger.info(f"Successfully saved feedback for run {run_id_to_update}.")
                         st.rerun() # Force a UI refresh to reflect state changes
                     else:
