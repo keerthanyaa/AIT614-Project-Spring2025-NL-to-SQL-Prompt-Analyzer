@@ -2,7 +2,7 @@
 -- 1. Addresses Table (Created first because it's referenced by other tables)
 
 CREATE TABLE Addresses (
-    AddressID SERIAL PRIMARY KEY,
+    AddressID INTEGER PRIMARY KEY, -- Changed from SERIAL
     StreetAddress TEXT NOT NULL,
     City TEXT NOT NULL,
     State TEXT NOT NULL,
@@ -274,88 +274,74 @@ CREATE TABLE InventoryLevels (
 
 INSERT INTO Addresses (StreetAddress, City, State, ZipCode, Country, AddressType) VALUES
 -- Corporate & Manufacturing Sites
-('1000 Manufacturing Way', 'Detroit', 'MI', '48201', 'USA', 'Site'),
-('2500 Assembly Drive', 'Toledo', 'OH', '43604', 'USA', 'Site'),
-('800 Industrial Parkway', 'Arlington', 'TX', '76010', 'USA', 'Site'),
+INSERT INTO Addresses (AddressID, StreetAddress, City, State, ZipCode, Country, AddressType) VALUES
+-- Corporate & Manufacturing Sites
+(105, '1000 Manufacturing Way', 'Detroit', 'MI', '48201', 'USA', 'Site'), -- <<< ID 105 assigned
+(106, '2500 Assembly Drive', 'Toledo', 'OH', '43604', 'USA', 'Site'),
+(107, '800 Industrial Parkway', 'Arlington', 'TX', '76010', 'USA', 'Site'),
+(132, '159 Industrial Circle', 'Indianapolis', 'IN', '46201', 'USA', 'Site'),
+(141, '951 Repair Road', 'Cincinnati', 'OH', '45201', 'USA', 'Site'),
+(142, '357 Maintenance Drive', 'Milwaukee', 'WI', '53201', 'USA', 'Site'),
+(143, '159 Service Street', 'Oklahoma City', 'OK', '73101', 'USA', 'Site'),
+(147, '159 Storage Drive', 'Memphis', 'TN', '38101', 'USA', 'Site'),
+(148, '753 Warehouse Road', 'Louisville', 'KY', '40201', 'USA', 'Site'),
+(149, '951 Inventory Lane', 'Jacksonville', 'FL', '32201', 'USA', 'Site'),
+(155, '159 Hybrid Location', 'Baltimore', 'MD', '21201', 'USA', 'Site'),
 
 -- Corporate Offices
-('555 Headquarters Plaza', 'Chicago', 'IL', '60601', 'USA', 'Work'),
-('100 Corporate Drive', 'Atlanta', 'GA', '30301', 'USA', 'Work'),
-('2100 Business Center Blvd', 'Boston', 'MA', '02110', 'USA', 'Work'),
+(108, '555 Headquarters Plaza', 'Chicago', 'IL', '60601', 'USA', 'Work'),
+(109, '100 Corporate Drive', 'Atlanta', 'GA', '30301', 'USA', 'Work'),
+(110, '2100 Business Center Blvd', 'Boston', 'MA', '02110', 'USA', 'Work'),
+(131, '357 Business Park', 'Raleigh', 'NC', '27601', 'USA', 'Work'),
+(144, '753 Executive Drive', 'Hartford', 'CT', '06101', 'USA', 'Work'),
+(145, '951 Manager Lane', 'Richmond', 'VA', '23218', 'USA', 'Work'),
+(146, '357 Admin Road', 'Providence', 'RI', '02901', 'USA', 'Work'),
+(154, '357 Flexible Space', 'Anchorage', 'AK', '99501', 'USA', 'Work'),
 
 -- Dealerships & Service Centers
-('789 Auto Mall Road', 'Los Angeles', 'CA', '90001', 'USA', 'Site'),
-('456 Dealership Drive', 'Miami', 'FL', '33101', 'USA', 'Site'),
-('234 Service Center Ave', 'Phoenix', 'AZ', '85001', 'USA', 'Site'),
+(111, '789 Auto Mall Road', 'Los Angeles', 'CA', '90001', 'USA', 'Site'),
+(112, '456 Dealership Drive', 'Miami', 'FL', '33101', 'USA', 'Site'),
+(113, '234 Service Center Ave', 'Phoenix', 'AZ', '85001', 'USA', 'Site'),
+-- (Note: IDs 141, 142, 143 are also Service Sites listed above)
 
 -- Employee Residences
-('123 Oak Street', 'Seattle', 'WA', '98101', 'USA', 'Home'),
-('456 Maple Avenue', 'Portland', 'OR', '97201', 'USA', 'Home'),
-('789 Pine Road', 'Denver', 'CO', '80201', 'USA', 'Home'),
-('321 Cedar Lane', 'Austin', 'TX', '78701', 'USA', 'Home'),
-('654 Birch Street', 'San Diego', 'CA', '92101', 'USA', 'Home'),
+(114, '123 Oak Street', 'Seattle', 'WA', '98101', 'USA', 'Home'),
+(115, '456 Maple Avenue', 'Portland', 'OR', '97201', 'USA', 'Home'),
+(116, '789 Pine Road', 'Denver', 'CO', '80201', 'USA', 'Home'),
+(117, '321 Cedar Lane', 'Austin', 'TX', '78701', 'USA', 'Home'),
+(118, '654 Birch Street', 'San Diego', 'CA', '92101', 'USA', 'Home'),
+(133, '753 Suburban Lane', 'Charlotte', 'NC', '28201', 'USA', 'Home'),
+(134, '951 Country Road', 'St. Louis', 'MO', '63101', 'USA', 'Home'),
+(135, '357 City Avenue', 'Pittsburgh', 'PA', '15201', 'USA', 'Home'),
 
 -- Customer Primary Addresses
-('987 Residential Blvd', 'Nashville', 'TN', '37201', 'USA', 'Primary'),
-('654 Highland Drive', 'Houston', 'TX', '77001', 'USA', 'Primary'),
-('321 Valley View Road', 'Las Vegas', 'NV', '89101', 'USA', 'Primary'),
-('147 Mountain Way', 'Salt Lake City', 'UT', '84101', 'USA', 'Primary'),
-('258 Lake Drive', 'Minneapolis', 'MN', '55401', 'USA', 'Primary'),
+(119, '987 Residential Blvd', 'Nashville', 'TN', '37201', 'USA', 'Primary'),
+(120, '654 Highland Drive', 'Houston', 'TX', '77001', 'USA', 'Primary'),
+(121, '321 Valley View Road', 'Las Vegas', 'NV', '89101', 'USA', 'Primary'),
+(122, '147 Mountain Way', 'Salt Lake City', 'UT', '84101', 'USA', 'Primary'),
+(123, '258 Lake Drive', 'Minneapolis', 'MN', '55401', 'USA', 'Primary'),
+(130, '951 Multipurpose Drive', 'Sacramento', 'CA', '95814', 'USA', 'Primary'),
+(136, '486 Residential Street', 'Orlando', 'FL', '32801', 'USA', 'Primary'),
+(137, '159 Neighborhood Lane', 'Dallas', 'TX', '75201', 'USA', 'Primary'),
+(138, '753 Community Road', 'San Antonio', 'TX', '78201', 'USA', 'Primary'),
+(139, '842 Queen Street', 'Toronto', 'ON', 'M5H 2N2', 'Canada', 'Primary'),
+(140, '15 Mexico City Blvd', 'Mexico City', 'CDMX', '11529', 'Mexico', 'Primary'),
+(153, '951 Multi-Use Center', 'Honolulu', 'HI', '96801', 'USA', 'Primary'),
+(156, '753 Dual Purpose', 'Columbus', 'OH', '43215', 'USA', 'Primary'),
 
 -- Shipping Addresses
-('369 Commerce Park', 'Philadelphia', 'PA', '19101', 'USA', 'Shipping'),
-('741 Distribution Center', 'Cleveland', 'OH', '44101', 'USA', 'Shipping'),
-('852 Logistics Way', 'Kansas City', 'MO', '64101', 'USA', 'Shipping'),
+(124, '369 Commerce Park', 'Philadelphia', 'PA', '19101', 'USA', 'Shipping'),
+(125, '741 Distribution Center', 'Cleveland', 'OH', '44101', 'USA', 'Shipping'),
+(126, '852 Logistics Way', 'Kansas City', 'MO', '64101', 'USA', 'Shipping'),
+(150, '357 Delivery Way', 'Albuquerque', 'NM', '87101', 'USA', 'Shipping'),
+(151, '159 Reception Road', 'Tucson', 'AZ', '85701', 'USA', 'Shipping'),
+(152, '753 Shipment Street', 'Fresno', 'CA', '93721', 'USA', 'Shipping'),
 
 -- Billing Addresses
-('963 Financial Plaza', 'New York', 'NY', '10001', 'USA', 'Billing'),
-('159 Accounting Lane', 'San Francisco', 'CA', '94101', 'USA', 'Billing'),
-('753 Invoice Road', 'Washington', 'DC', '20001', 'USA', 'Billing'),
+(127, '963 Financial Plaza', 'New York', 'NY', '10001', 'USA', 'Billing'),
+(128, '159 Accounting Lane', 'San Francisco', 'CA', '94101', 'USA', 'Billing'),
+(129, '753 Invoice Road', 'Washington', 'DC', '20001', 'USA', 'Billing');
 
--- Mixed Use Addresses
-('951 Multipurpose Drive', 'Sacramento', 'CA', '95814', 'USA', 'Primary'),
-('357 Business Park', 'Raleigh', 'NC', '27601', 'USA', 'Work'),
-('159 Industrial Circle', 'Indianapolis', 'IN', '46201', 'USA', 'Site'),
-
--- Additional Employee Homes
-('753 Suburban Lane', 'Charlotte', 'NC', '28201', 'USA', 'Home'),
-('951 Country Road', 'St. Louis', 'MO', '63101', 'USA', 'Home'),
-('357 City Avenue', 'Pittsburgh', 'PA', '15201', 'USA', 'Home'),
-
--- Additional Customer Addresses
-('486 Residential Street', 'Orlando', 'FL', '32801', 'USA', 'Primary'),
-('159 Neighborhood Lane', 'Dallas', 'TX', '75201', 'USA', 'Primary'),
-('753 Community Road', 'San Antonio', 'TX', '78201', 'USA', 'Primary'),
-
--- International Addresses
-('842 Queen Street', 'Toronto', 'ON', 'M5H 2N2', 'Canada', 'Primary'),
-('15 Mexico City Blvd', 'Mexico City', 'CDMX', '11529', 'Mexico', 'Primary'),
-
--- Additional Service Centers
-('951 Repair Road', 'Cincinnati', 'OH', '45201', 'USA', 'Site'),
-('357 Maintenance Drive', 'Milwaukee', 'WI', '53201', 'USA', 'Site'),
-('159 Service Street', 'Oklahoma City', 'OK', '73101', 'USA', 'Site'),
-
--- Additional Corporate Locations
-('753 Executive Drive', 'Hartford', 'CT', '06101', 'USA', 'Work'),
-('951 Manager Lane', 'Richmond', 'VA', '23218', 'USA', 'Work'),
-('357 Admin Road', 'Providence', 'RI', '02901', 'USA', 'Work'),
-
--- Warehouse Locations
-('159 Storage Drive', 'Memphis', 'TN', '38101', 'USA', 'Site'),
-('753 Warehouse Road', 'Louisville', 'KY', '40201', 'USA', 'Site'),
-('951 Inventory Lane', 'Jacksonville', 'FL', '32201', 'USA', 'Site'),
-
--- Additional Customer Shipping Addresses
-('357 Delivery Way', 'Albuquerque', 'NM', '87101', 'USA', 'Shipping'),
-('159 Reception Road', 'Tucson', 'AZ', '85701', 'USA', 'Shipping'),
-('753 Shipment Street', 'Fresno', 'CA', '93721', 'USA', 'Shipping'),
-
--- Additional Mixed Use
-('951 Multi-Use Center', 'Honolulu', 'HI', '96801', 'USA', 'Primary'),
-('357 Flexible Space', 'Anchorage', 'AK', '99501', 'USA', 'Work'),
-('159 Hybrid Location', 'Baltimore', 'MD', '21201', 'USA', 'Site'),
-('753 Dual Purpose', 'Columbus', 'OH', '43215', 'USA', 'Primary');
 
 -- the feataures are below 
 
@@ -1209,7 +1195,7 @@ INSERT INTO ProductFeatures (ProductID, FeatureID) VALUES
 (43, 1), (43, 2), (43, 3), (43, 4), (43, 5),  -- Complete Safety
 (43, 11), (43, 12), (43, 13), (43, 14),       -- Premium Interior
 (43, 41), (43, 42), (43, 43), (43, 44),       -- Full Tech Suite
-(43, 45)                                      -- Vehicle Control module
+(43, 45) ;                                     -- Vehicle Control module
 
 -- product components 
 
@@ -1334,7 +1320,7 @@ INSERT INTO ProductComponents (ProductID, ComponentID, QuantityRequired) VALUES
 (43, 32, 1), -- Adaptive Suspension
 (43, 33, 1), -- Performance Brake System
 (43, 34, 4), -- Performance Wheel Hub Assembly
-(43, 45, 1)  -- Advanced Vehicle Control module
+(43, 45, 1) ; -- Advanced Vehicle Control module
 
 --
 --vehicle
@@ -1450,7 +1436,7 @@ INSERT INTO VehicleFeatures (VehicleID, FeatureID) VALUES
 (28, 1), (28, 4), (28, 8), (28, 24), (28, 34),  -- Base SUV features
 (29, 3), (29, 4), (29, 8), (29, 34),  -- Base crossover features
 (30, 4), (30, 8), (30, 24), (30, 34),  -- Base truck features
-(31, 3), (31, 4), (31, 8), (31, 41)   -- Base EV features
+(31, 3), (31, 4), (31, 8), (31, 41) ;  -- Base EV features
 
 
 --sales order 
