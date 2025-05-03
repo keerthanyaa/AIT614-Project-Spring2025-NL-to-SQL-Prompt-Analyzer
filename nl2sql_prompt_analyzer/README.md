@@ -2,7 +2,7 @@
 
 ## Description
 
-This project is an analysis and evaluation framework designed to systematically study the impact of various prompt engineering techniques on the accuracy of SQL query generation by Large Language Models (LLMs). It focuses on the Natural Language to SQL (NL2SQL) task, comparing model performance across standard benchmark datasets (like Spider, WikiSQL) and simulated real-world database scenarios which often feature unstructured schemas and domain-specific ambiguities.
+This project is an analysis and evaluation framework designed to systematically study the impact of various prompt engineering techniques on the accuracy of SQL query generation by Large Language Models (LLMs). It focuses on the Natural Language to SQL (NL2SQL) task, by comparing model performance across standard benchmark datasets (like Spider, WikiSQL) and simulated real-world database scenarios which often feature unstructured schemas and domain-specific ambiguities.
 
 The framework allows users to input natural language questions, apply different prompting strategies (Zero-Shot, Few-Shot, Structured/Domain-Specific [, Chain-of-Thought - TBC]), generate SQL queries using configurable LLMs (e.g., GPT, LLaMA), execute these queries, and evaluate their accuracy using metrics like Exact Match (EM) and Execution Accuracy (ExecAcc).
 
@@ -165,7 +165,13 @@ python -m graph_logic.graphs
     * `fetch_run_history`: Retrieves logged runs from the `experiment_runs` collection, supporting filtering. This is integrated into the Streamlit app (Tab 3) to display recent history by default and allow filtered searches.
 * **Status:** Connection, logging, feedback saving, and history fetching are implemented and integrated with the Streamlit UI. Data is successfully being written to and read from MongoDB Atlas.
 
+### LLM Integration 
 
+The below 2 API calls can be made for testing the NL2SQL Generated Query : 
+
+* Openai GPT-4o-mini 
+
+* Gemini 1.5 Flash
 
 
 ## ToDO 

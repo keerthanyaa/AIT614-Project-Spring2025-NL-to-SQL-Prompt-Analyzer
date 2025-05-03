@@ -21,7 +21,6 @@ from .schema_utils import (
     assemble_structured_prompt 
 )
 # -------------------------------------------------
-
 from .sql_gen import call_llm_node # Node handling LLM calls (class-based)
 import logging
 
@@ -48,7 +47,6 @@ def decide_prompt_strategy(state: GraphState) -> str:
     if strategy == "Structured/Domain-Specific": return "run_structured_start"
     return "run_zero_shot" # Default
 
-# --- Graph Definition ---
 # --- Graph Definition ---
 def build_graph():
     workflow = StateGraph(GraphState)

@@ -2,12 +2,53 @@
 from .state import GraphState
 import time
 import logging
-from typing import Protocol, Dict, Type # For type hinting
+import os
+import re
+from typing import Protocol, Dict, Type , Optional# For type hinting
 
 # --- Potentially load configurations ---
-# from config.settings import OPENAI_API_KEY, HUGGINGFACE_TOKEN # Example
+# from config.settings import OPENAI_API_KEY, GOOGLEAPI_TOKEN # Example
 
 logger = logging.getLogger(__name__)
+
+# ---Imports for LLM calls---
+from openai import OpenAI, OpenAIError, APIConnectionError, RateLimitError, APIStatusError
+import google.generativeai as genai
+import google.generativeai.types as genai_types
+
+# ---Imports for Validation
+from pydantic import BaseModel, field_validator, ValidationError
+
+# --- Load .env file ---
+from pathlib import Path
+from dotenv import load_dotenv
+
+env_path = Path(__file__).parent.parent / 'config' / '.env'
+if env_path.is_file():
+    load_dotenv(dotenv_path=env_path, override=True)
+else:
+    logging.warning(f".env file not found at {env_path}. Relying on system environment variables.")
+# --------------------
+
+# --- Pydantic Model for Basic SQL Validation ---
+class SQLQueryValidator(BaseModel):
+    """Basic validator to check if a string looks like a SQL query."""
+    query: str
+
+    @field_validator('query')
+    @classmethod
+    def check_sql_start(cls, v: str) -> str:
+        """Check if the query starts with common SQL keywords."""
+        v_stripped = v.strip()
+        # Basic check for common SQL starting keywords (case-insensitive)
+        sql_starters = r'^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH|SHOW)\b'
+        if not re.match(sql_starters, v_stripped, re.IGNORECASE):
+            raise ValueError('Query does not start with a common SQL keyword (SELECT, INSERT, etc.)')
+        # Optional: Add more checks (e.g., presence of FROM/WHERE for SELECT)
+        # if v_stripped.upper().startswith('SELECT') and 'FROM' not in v_stripped.upper():
+        #     raise ValueError('SELECT query likely missing FROM clause')
+        return v # Return original if valid (or potentially v_stripped)
+
 
 # --- 1. Define the LLM Client Interface (Protocol) ---
 class LLMClient(Protocol):
@@ -39,106 +80,212 @@ class MockLLMClient:
         return mock_sql
 
 class OpenAIClient:
-    """Client for interacting with OpenAI models (e.g., GPT-4)."""
-    def __init__(self, config: Dict | None = None):
+    """Client for interacting with OpenAI models (e.g., gpt-4o-mini)."""
+    def __init__(self, config: Optional[Dict] = None):
         logger.info("Initializing OpenAIClient...")
         self.config = config or {}
-        # --- Add real initialization ---
-        # try:
-        #     from openai import OpenAI
-        #     # Load API key securely (e.g., from settings or env vars)
-        #     # api_key = self.config.get('api_key', OPENAI_API_KEY)
-        #     # if not api_key:
-        #     #     raise ValueError("OpenAI API key not found.")
-        #     # self.client = OpenAI(api_key=api_key)
-        #     logger.info("OpenAI client initialized (Simulated).") # Replace when real
-        # except ImportError:
-        #     logger.error("OpenAI library not installed. pip install openai")
-        #     self.client = None
-        # except Exception as e:
-        #     logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
-        #     self.client = None
-        # ----------------------------
-        # Placeholder status
-        self.client = "Simulated OpenAI Client" # Replace with actual client object
+        self.model_name = self.config.get("model", "gpt-4o-mini") # Default to gpt-4o-mini
+
+        if OpenAI is None or OpenAIError is None:
+             logger.error("OpenAI library not installed.")
+             raise ImportError("openai library is required for OpenAIClient.")
+        if BaseModel is None: # Check if Pydantic is available
+             logger.error("Pydantic library not installed.")
+             raise ImportError("pydantic library is required for SQL validation.")
+
+        try:
+            # CLARIFICATION: OpenAI() implicitly reads the OPENAI_API_KEY environment variable
+            self.client = OpenAI()
+            self.client.models.list() # Simple call to check authentication
+            logger.info(f"OpenAI client initialized successfully for model {self.model_name}.")
+        except (OpenAIError, APIConnectionError) as e:
+            logger.error(f"Failed to initialize or authenticate OpenAI client: {e}", exc_info=False)
+            self.client = None
+            raise ConnectionError(f"Failed to connect/authenticate OpenAI: {e}")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during OpenAI client initialization: {e}", exc_info=True)
+            self.client = None
+            raise ConnectionError(f"Unexpected error initializing OpenAI: {e}")
 
     def generate_sql(self, prompt: str) -> str:
-        logger.info(f"OpenAIClient generating SQL...")
-        # --- Add real API call ---
-        # if not self.client:
-        #      raise ConnectionError("OpenAI client not initialized.")
-        # try:
-        #     # Example API call structure (adjust based on actual usage)
-        #     # response = self.client.chat.completions.create(
-        #     #     model=self.config.get("model", "gpt-4-turbo-preview"), # Or get model from config
-        #     #     messages=[{"role": "user", "content": prompt}],
-        #     #     max_tokens=300, # Example parameters
-        #     #     temperature=0.1
-        #     # )
-        #     # generated_sql = response.choices[0].message.content.strip()
-        #     # logger.info("Successfully received response from OpenAI.")
-        #     # return generated_sql
-        # except Exception as e:
-        #     logger.error(f"OpenAI API call failed: {e}", exc_info=True)
-        #     raise # Re-raise the exception to be caught by the node runner
-        # --------------------------
-        # Placeholder generation
-        time.sleep(2.0) # Simulate network delay
-        generated_sql = f"-- SIMULATED SQL from OpenAI --\nSELECT * FROM simulated_openai_table WHERE prompt_contains = '{prompt[-25:]}';"
-        return generated_sql
+        """Generates SQL using the configured OpenAI model, logs tokens, and validates output."""
+        if not self.client:
+            logger.error("OpenAI client not initialized.")
+            return "-- ERROR: OpenAI client not initialized."
 
-class HuggingFaceClient:
-    """Client for interacting with Hugging Face models."""
-    def __init__(self, config: Dict | None = None):
-        logger.info("Initializing HuggingFaceClient...")
+        logger.info(f"Querying OpenAI model '{self.model_name}'...")
+        system_prompt = "You are an expert SQL generator. Generate only the SQL query."
+        user_prompt = prompt
+
+        logger.debug(f"Sending to OpenAI:\nSystem: {system_prompt}\nUser: {user_prompt}")
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.1,
+            )
+            logger.info(f"OpenAI raw response : {response}")
+            # --- >>> Log Token Usage <<< ---
+            if response.usage:
+                prompt_tokens = response.usage.prompt_tokens
+                completion_tokens = response.usage.completion_tokens
+                total_tokens = response.usage.total_tokens
+                logger.info(f"OpenAI API Usage: Prompt={prompt_tokens}, Completion={completion_tokens}, Total={total_tokens} tokens.")
+            else:
+                logger.warning("Token usage information not available in OpenAI response.")
+            # --- >>> End Token Logging <<< ---
+
+            if response.choices:
+                raw_sql = response.choices[0].message.content.strip()
+                logger.debug(f"Raw response from OpenAI: {raw_sql}")
+
+                # Clean potential markdown code fences first
+                if raw_sql.lower().startswith("```sql"): raw_sql = raw_sql[6:]
+                if raw_sql.endswith("```"): raw_sql = raw_sql[:-3]
+                cleaned_sql = raw_sql.strip()
+
+                # --- >>> Validate SQL using Pydantic <<< ---
+                try:
+                    SQLQueryValidator(query=cleaned_sql)
+                    logger.info("Generated SQL passed basic validation.")
+                    return cleaned_sql # Return validated and cleaned SQL
+                except ValidationError as val_err:
+                    logger.error(f"Generated text failed SQL validation: {val_err}")
+                    logger.error(f"Invalid SQL received: {cleaned_sql}")
+                    return f"-- ERROR: Generated text failed SQL validation: {val_err}. Output was: {cleaned_sql}"
+                # --- >>> End Validation <<< ---
+
+            else:
+                finish_reason = response.choices[0].finish_reason if response.choices else 'N/A'
+                logger.warning(f"OpenAI response contained no choices. Finish reason: {finish_reason}")
+                return f"-- WARNING: OpenAI returned no response choices (Finish Reason: {finish_reason})."
+
+        except RateLimitError as e:
+             logger.error(f"OpenAI API rate limit exceeded: {e}", exc_info=False)
+             return f"-- ERROR: OpenAI API Rate Limit Exceeded. Please try again later."
+        except APIConnectionError as e:
+             logger.error(f"OpenAI API connection error: {e}", exc_info=False)
+             return f"-- ERROR: OpenAI API Connection Error: {e}"
+        except APIStatusError as e:
+             logger.error(f"OpenAI API status error (e.g., 4xx, 5xx): {e}", exc_info=False)
+             return f"-- ERROR: OpenAI API Status Error: Status={e.status_code}, Message={e.message}"
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error during SQL generation: {e}", exc_info=True)
+            return f"-- ERROR: OpenAI API Error: {e}"
+        except Exception as e:
+            logger.error(f"Unexpected error during OpenAI SQL generation: {e}", exc_info=True)
+            return f"-- ERROR: Unexpected error during OpenAI call: {e}"
+
+
+# --- Updated Gemini Client with REAL API Call ---
+class GeminiClient:
+    """Client for interacting with Google Gemini models (e.g., gemini-1.5-flash-latest)."""
+    def __init__(self, config: Optional[Dict] = None):
+        logger.info("Initializing GeminiClient...")
         self.config = config or {}
-        self.model_name = self.config.get("model_name", "Salesforce/codet5p-770m-py") # Example model
-        # --- Add real initialization ---
-        # try:
-        #     from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM # Example imports
-        #     # Load token/creds securely
-        #     # token = self.config.get('token', HUGGINGFACE_TOKEN)
-        #     # self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_auth_token=token)
-        #     # self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name, use_auth_token=token)
-        #     # self.pipe = pipeline('text2text-generation', model=self.model, tokenizer=self.tokenizer) # Example pipeline
-        #     logger.info(f"HuggingFace pipeline for '{self.model_name}' initialized (Simulated).")
-        # except ImportError:
-        #     logger.error("Transformers library not installed. pip install transformers torch") # Add torch/tf as needed
-        #     self.pipe = None
-        # except Exception as e:
-        #     logger.error(f"Failed to initialize HuggingFace client: {e}", exc_info=True)
-        #     self.pipe = None
-        # ----------------------------
-        self.pipe = "Simulated HuggingFace Pipeline" # Placeholder
+        self.model_name = self.config.get("model", "gemini-1.5-flash-latest") # Default to Flash
+
+        if genai is None or genai_types is None:
+            logger.error("google-generativeai library not installed.")
+            raise ImportError("google-generativeai library is required for GeminiClient.")
+        if BaseModel is None: # Check if Pydantic is available
+             logger.error("Pydantic library not installed.")
+             raise ImportError("pydantic library is required for SQL validation.")
+
+        try:
+            api_key = os.environ.get('GOOGLE_API_KEY')
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY not found in environment variables or .env file.")
+            genai.configure(api_key=api_key)
+            self.model = genai.GenerativeModel(self.model_name)
+            logger.info(f"Gemini client initialized successfully for model {self.model_name}.")
+        except ValueError as e:
+             logger.error(f"Gemini configuration error (likely API key issue): {e}", exc_info=False)
+             self.model = None
+             raise ConnectionError(f"Gemini configuration error: {e}")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during Gemini client initialization: {e}", exc_info=True)
+            self.model = None
+            raise ConnectionError(f"Unexpected error initializing Gemini: {e}")
 
     def generate_sql(self, prompt: str) -> str:
-        logger.info(f"HuggingFaceClient generating SQL using '{self.model_name}'...")
-        # --- Add real model inference ---
-        # if not self.pipe:
-        #     raise ConnectionError("HuggingFace pipeline not initialized.")
-        # try:
-        #     # Adjust parameters as needed for your model/pipeline
-        #     # results = self.pipe(prompt, max_length=200, num_beams=4, early_stopping=True)
-        #     # generated_sql = results[0]['generated_text'].strip()
-        #     # logger.info("Successfully received response from HuggingFace pipeline.")
-        #     # return generated_sql
-        # except Exception as e:
-        #     logger.error(f"HuggingFace inference failed: {e}", exc_info=True)
-        #     raise
-        # -------------------------------
-        # Placeholder generation
-        time.sleep(3.0) # Simulate potentially longer local inference
-        generated_sql = f"-- SIMULATED SQL from {self.model_name} --\nSELECT hf_data FROM hf_table WHERE input = '{prompt[-30:]}';"
-        return generated_sql
+        """Generates SQL using the configured Gemini model, logs tokens (if available), and validates output."""
+        if not self.model:
+            logger.error("Gemini model not initialized.")
+            return "-- ERROR: Gemini model not initialized."
+
+        logger.info(f"Querying Gemini model '{self.model_name}'...")
+        full_prompt = prompt
+        logger.debug(f"Sending to Gemini:\n{full_prompt}")
+
+        generation_config = genai.types.GenerationConfig(temperature=0.1)
+        safety_settings = { } # Use default safety settings initially
+
+        try:
+            response = self.model.generate_content(
+                full_prompt,
+                generation_config=generation_config,
+                safety_settings=safety_settings
+            )
+            logger.info(f"Gemini raw response : {response}")
+            # --- >>> Log Token Usage (if available) <<< ---
+            # Note: Token count might be in response.usage_metadata
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                 prompt_tokens = response.usage_metadata.prompt_token_count
+                 completion_tokens = response.usage_metadata.candidates_token_count
+                 total_tokens = response.usage_metadata.total_token_count
+                 logger.info(f"Gemini API Usage: Prompt={prompt_tokens}, Completion={completion_tokens}, Total={total_tokens} tokens.")
+            else:
+                 logger.warning("Token usage metadata not available in Gemini response.")
+            # --- >>> End Token Logging <<< ---
+
+            # Safely access text using response.text accessor
+            raw_sql = response.text.strip()
+            logger.debug(f"Raw response from Gemini: {raw_sql}")
+
+            # Clean potential markdown code fences first
+            if raw_sql.lower().startswith("```sql"): raw_sql = raw_sql[6:]
+            if raw_sql.endswith("```"): raw_sql = raw_sql[:-3]
+            cleaned_sql = raw_sql.strip()
+
+            # --- >>> Validate SQL using Pydantic <<< ---
+            try:
+                SQLQueryValidator(query=cleaned_sql)
+                logger.info("Generated SQL passed basic validation.")
+                return cleaned_sql # Return validated and cleaned SQL
+            except ValidationError as val_err:
+                logger.error(f"Generated text failed SQL validation: {val_err}")
+                logger.error(f"Invalid SQL received: {cleaned_sql}")
+                return f"-- ERROR: Generated text failed SQL validation: {val_err}. Output was: {cleaned_sql}"
+            # --- >>> End Validation <<< ---
 
 
-# --- 3. Factory Function/Registry ---
-# Map string names (from Streamlit dropdown) to client classes
+        except genai_types.BlockedPromptException as e:
+            logger.error(f"Gemini prompt was blocked: {e}", exc_info=False)
+            try: logger.error(f"Gemini Block Feedback: {response.prompt_feedback}")
+            except: pass
+            return f"-- ERROR: Gemini prompt blocked."
+        except genai_types.StopCandidateException as e:
+             logger.error(f"Gemini generation stopped unexpectedly: {e}", exc_info=False)
+             reason = "Unknown"
+             try: reason = response.candidates[0].finish_reason
+             except: pass
+             return f"-- WARNING: Gemini generation stopped ({reason})."
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during Gemini SQL generation: {e}", exc_info=True)
+            return f"-- ERROR: Unexpected error during Gemini call: {e}"
+
+
+# --- Factory Function / Registry ---
 LLM_CLIENT_REGISTRY: Dict[str, Type[LLMClient]] = {
     "MockLLM": MockLLMClient,
-    "GPT-4 (Placeholder)": OpenAIClient, # Map placeholder name to your actual class
-    "LLaMA-2 (Placeholder)": HuggingFaceClient, # Example mapping LLaMA to HF client
-    # Add other mappings as needed
+    "GPT-4o Mini": OpenAIClient,
+    "Gemini 1.5 Flash": GeminiClient,
+    # --- >>> Removed Databricks Entry <<< ---
 }
 
 def get_llm_client(llm_name: str, config: Dict | None = None) -> LLMClient:

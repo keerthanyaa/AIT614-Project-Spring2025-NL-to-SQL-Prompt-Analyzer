@@ -5,3 +5,6 @@ pymongo
 python-dotenv
 langgraph
 certifi
+openai
+google-generativeai
+pydantic

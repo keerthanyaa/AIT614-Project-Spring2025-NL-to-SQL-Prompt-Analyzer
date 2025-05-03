@@ -78,7 +78,7 @@ with st.sidebar:
         "real-world-manufacturing-cars"
     ]
     available_prompt_types = ["Zero-Shot", "Few-Shot", "Structured/Domain-Specific"]
-    available_llms = ["GPT-4 (Placeholder)", "LLaMA-2 (Placeholder)"]
+    available_llms = ["GPT-4o Mini", "Gemini 1.5 Flash"]
 
     selected_dataset = st.selectbox(
         "Select Dataset:",

@@ -9,7 +9,7 @@ def fetch_zero_shot_prompt(state: GraphState) -> GraphState:
     """Generates the prompt for the Zero-Shot strategy."""
     logger.debug("Entering generate_zero_shot_prompt node.")
     nl_query = state['nl_query']
-    prompt = f"Translate the following question to SQL: {nl_query}"
+    prompt = f"Translate the following question to SQL: {nl_query}. ONLY output the SQL query. Do not include explanations, markdown formatting (like ```sql), or any other text."
     logger.info("Generated Zero-Shot prompt.")
     return {"final_prompt": prompt}
 
@@ -26,7 +26,7 @@ def fetch_few_shot_prompt(state: GraphState) -> GraphState:
         "# Example Q: List all customer names\nSELECT name FROM customers;\n"
         "# Example Q: Count orders for user 5\nSELECT COUNT(*) FROM orders WHERE user_id = 5;\n"
     )
-    prompt = f"{examples}\n# Translate the following question to SQL: {nl_query}"
+    prompt = f"{examples}\n# Translate the following question to SQL: {nl_query}. ONLY output the SQL query. Do not include explanations, markdown formatting (like ```sql), or any other text."
     logger.info("Generated Few-Shot prompt (with placeholder examples).")
     return {"final_prompt": prompt}
 
