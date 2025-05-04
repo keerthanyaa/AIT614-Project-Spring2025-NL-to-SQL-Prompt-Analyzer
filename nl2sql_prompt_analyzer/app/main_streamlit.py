@@ -15,8 +15,36 @@ sys.path.insert(0, str(project_root))
 from config.logging_config import setup_logging
 # --- Placeholder imports for other modules ---
 from graph_logic.graphs import run_nl2sql_graph
-from storage.db_handler import log_result, save_feedback, fetch_run_history
+from storage.db_handler import log_result, save_feedback, fetch_run_history, get_stats_by_group
 from storage.sql_connector import execute_sql_query
+# Make sure you have the path correctly set up to import your storage module
+try:
+    import storage.db_handler as db_handler
+    # Optionally, add a function in db_handler to get distinct values for filters
+    # Example: get_distinct_field_values(field_name)
+    if not hasattr(db_handler, 'get_distinct_field_values'):
+        # Define a placeholder if it doesn't exist, or implement it in db_handler
+        def get_distinct_field_values(field_name):
+             # Placeholder implementation - replace with actual DB query
+             if field_name == 'dataset':
+                 # In a real scenario, query MongoDB: collection.distinct('dataset')
+                 # Use the samples provided earlier for placeholder data
+                 return ["sample-benchmark-manufacturing-cars"]
+             else:
+                 return []
+        db_handler.get_distinct_field_values = get_distinct_field_values # Attach if missing
+
+except ImportError:
+    st.error("Failed to import `storage.db_handler`. Please ensure it's accessible.")
+    # You might want to use st.stop() here or define dummy functions for UI layout
+    # For demonstration, we'll define dummy functions if import fails
+    class DummyDBHandler:
+        def get_overall_stats(self): return None
+        def get_stats_by_group(self, group_by_fields, filters=None): return None
+        def get_distinct_field_values(self, field_name): return ["dummy_dataset"] if field_name == 'dataset' else []
+    db_handler = DummyDBHandler()
+    st.warning("Using dummy data handlers as `storage.db_handler` failed to import.")
+
 # -----------------------------------------------
 
 
@@ -319,7 +347,7 @@ with tab1:
         else:
             st.caption("Token usage information not available.")
         # --- >>> End Token Usage Display <<< ---
-        
+
         # --- >>> Display SQL Execution Results <<< ---
         st.markdown("---")
         st.subheader("SQL Execution Result")
@@ -388,18 +416,282 @@ with tab1:
 
 
 # --- Tab 2: Evaluation Analytics ---
-# with tab2:
-#     st.header("Analyze Experiment Results")
-#     st.write("View aggregated metrics and comparisons from completed experiment runs.")
-#     st.info("This section will display analytics once experiment data is logged in the database.")
+with tab2:
+    # <<< START of inserted code for Tab 2 >>>
+    st.header("Analyze Experiment Results")
 
-#     st.subheader("Overall Performance Metrics (Placeholder)")
-#     st.write("Average EM/ExecAcc scores per prompt type, dataset, etc. will be shown here.")
-#     # Placeholder for fetching and displaying aggregated data...
+    # --- Filters ---
+    # Using the sidebar for filters is generally cleaner
+    st.sidebar.subheader("📊 Analytics Filters") # Added divider above in main sidebar section
 
-#     st.subheader("Performance Comparison Charts (Placeholder)")
-#     st.write("Bar charts comparing prompt techniques or performance across datasets will be displayed here.")
-#     # Placeholder for creating charts...
+    try:
+        # Fetch distinct datasets for the selector
+        available_datasets_analytics = db_handler.get_distinct_field_values("dataset")
+        if not available_datasets_analytics: # Handle case where no datasets are found
+            st.sidebar.warning("No datasets found for analytics.")
+            dataset_options_analytics = ["Overall"]
+        else:
+            # Use set for uniqueness and sort, ensure 'Overall' is first
+            dataset_options_analytics = ["Overall"] + sorted(list(set(available_datasets_analytics)))
+
+    except Exception as e:
+        st.sidebar.error(f"Failed to fetch datasets for analytics: {e}")
+        dataset_options_analytics = ["Overall"] # Fallback
+
+    selected_dataset_analytics = st.sidebar.selectbox(
+        "Select Dataset:",
+        options=dataset_options_analytics,
+        index=0, # Default to 'Overall'
+        key="analytics_dataset_select" # Add a key for stability
+    )
+
+    # Determine filter dictionary for backend calls
+    filters_analytics = {}
+    if selected_dataset_analytics != "Overall":
+        filters_analytics["dataset"] = selected_dataset_analytics
+
+    # Grouping options
+    grouping_options_analytics = ["LLM", "Prompt Type"]
+    selected_grouping_analytics = st.sidebar.radio(
+        "Group Results By:",
+        options=grouping_options_analytics,
+        index=0, # Default to LLM
+        key="analytics_grouping_radio"
+    )
+    # Convert display name to the field name used in the database
+    group_by_field_analytics = selected_grouping_analytics.lower().replace(" ", "_") # "llm" or "prompt_type"
+
+    st.divider()
+
+    # --- Display Overall Stats ---
+    # These stats reflect the entire database, ignoring the dataset filter for now.
+    st.subheader("Overall System Performance (All Datasets)")
+    overall_stats_analytics = None
+    try:
+        overall_stats_analytics = db_handler.get_overall_stats()
+    except Exception as e:
+        st.error(f"Error retrieving overall stats: {e}")
+        logger.error("Error calling get_overall_stats", exc_info=True)
+
+    if overall_stats_analytics is not None and isinstance(overall_stats_analytics, dict) and overall_stats_analytics:
+        # Use columns for a neater layout of metrics
+        col1_overall, col2_overall, col3_overall = st.columns(3)
+        with col1_overall:
+            st.metric("Total Runs Processed", f"{overall_stats_analytics.get('total_runs', 'N/A'):,}")
+            # Format duration to 2 decimal places
+            st.metric("Avg. Duration (sec)", f"{overall_stats_analytics.get('avg_duration_sec', 0):.2f}")
+        with col2_overall:
+            # Format tokens to 1 decimal place
+            st.metric("Avg. Generation Tokens", f"{overall_stats_analytics.get('avg_total_gen_tokens', 0):.1f}")
+            # Handle prediction tokens which might be None
+            pred_tokens = overall_stats_analytics.get('avg_total_pred_tokens')
+            st.metric("Avg. Prediction Tokens", f"{pred_tokens:.1f}" if pred_tokens is not None else "N/A")
+        with col3_overall:
+            # Format rates as percentages with 1 decimal place
+            st.metric("SQL Execution Success Rate", f"{overall_stats_analytics.get('sql_exec_success_rate', 0)*100:.1f}%")
+            st.metric("LLM/Graph Error Rate", f"{overall_stats_analytics.get('llm_graph_error_rate', 0)*100:.1f}%")
+    elif overall_stats_analytics == {}: # Handle empty collection case from backend
+        st.info("No data found in the database to calculate overall statistics.")
+    else: # Handle None return (error) or unexpected type
+        st.warning("Could not retrieve valid overall statistics.")
+
+    st.divider()
+
+    # --- Display Grouped Stats ---
+    filter_desc_analytics = f"'{selected_dataset_analytics}' dataset" if selected_dataset_analytics != "Overall" else "all datasets"
+    st.subheader(f"Performance Breakdown for {filter_desc_analytics}, grouped by {selected_grouping_analytics}")
+
+    grouped_stats_analytics = None
+    try:
+        # Pass the group_by field as a list, and apply filters only if a specific dataset is selected
+        grouped_stats_analytics = db_handler.get_stats_by_group(
+            group_by_fields=[group_by_field_analytics],
+            filters=filters_analytics if selected_dataset_analytics != "Overall" else None
+        )
+    except Exception as e:
+        st.error(f"Error retrieving grouped stats: {e}")
+        logger.error(f"Error calling get_stats_by_group(group_by_fields=[{group_by_field_analytics}], filters={filters_analytics})", exc_info=True)
+
+    # Check if grouped_stats_analytics is a list (expected return type)
+    if isinstance(grouped_stats_analytics, list) and grouped_stats_analytics:
+        # Convert list of dicts to DataFrame for easier plotting/display
+        try:
+            df_grouped_analytics = pd.DataFrame(grouped_stats_analytics)
+
+            # --- Data Wrangling for Display ---
+            # Extract the grouping key from the '_id' dictionary into a new column
+            # The key inside the '_id' dict matches the 'group_by_field_analytics'
+            df_grouped_analytics[selected_grouping_analytics] = df_grouped_analytics['_id'].apply(lambda x: x.get(group_by_field_analytics, 'N/A'))
+            df_grouped_analytics = df_grouped_analytics.drop(columns=['_id']) # Drop the original complex _id column
+            df_grouped_analytics = df_grouped_analytics.set_index(selected_grouping_analytics) # Set the nice name as index for charts
+
+            # --- Display Charts ---
+            st.write(f"**Comparison by {selected_grouping_analytics}:**")
+            col_chart1_grouped, col_chart2_grouped = st.columns(2)
+            with col_chart1_grouped:
+                st.write("Average Duration (sec)")
+                # Ensure data exists and is numeric before plotting
+                if 'avg_duration_sec' in df_grouped_analytics.columns and pd.api.types.is_numeric_dtype(df_grouped_analytics['avg_duration_sec']):
+                    st.bar_chart(df_grouped_analytics['avg_duration_sec'])
+                else:
+                    st.caption("Duration data unavailable for chart.")
+
+                st.write("SQL Execution Success Rate (%)")
+                if 'sql_exec_success_rate' in df_grouped_analytics.columns and pd.api.types.is_numeric_dtype(df_grouped_analytics['sql_exec_success_rate']):
+                    # Ensure rate is scaled to 0-100
+                    st.bar_chart(df_grouped_analytics['sql_exec_success_rate'] * 100)
+                else:
+                    st.caption("Success rate data unavailable for chart.")
+
+            with col_chart2_grouped:
+                st.write("Average Generation Tokens")
+                if 'avg_total_gen_tokens' in df_grouped_analytics.columns and pd.api.types.is_numeric_dtype(df_grouped_analytics['avg_total_gen_tokens']):
+                    st.bar_chart(df_grouped_analytics['avg_total_gen_tokens'])
+                else:
+                    st.caption("Token data unavailable for chart.")
+
+                st.write("LLM/Graph Error Rate (%)")
+                if 'llm_graph_error_rate' in df_grouped_analytics.columns and pd.api.types.is_numeric_dtype(df_grouped_analytics['llm_graph_error_rate']):
+                    # Ensure rate is scaled to 0-100
+                    st.bar_chart(df_grouped_analytics['llm_graph_error_rate'] * 100)
+                else:
+                    st.caption("Error rate data unavailable for chart.")
+
+            # --- Display Detailed Table ---
+            with st.expander("Show Detailed Grouped Data Table"):
+                # Select and rename columns for a cleaner table display
+                display_columns_analytics = {
+                    'count': "Count",
+                    'avg_duration_sec': "Avg Duration (s)",
+                    'avg_total_gen_tokens': "Avg Gen Tokens",
+                    'avg_total_pred_tokens': "Avg Pred Tokens",
+                    'sql_exec_success_rate': "SQL Success %",
+                    'llm_graph_error_rate': "LLM/Graph Error %"
+                }
+                # Filter DataFrame to only columns that actually exist
+                existing_display_columns = {k: v for k, v in display_columns_analytics.items() if k in df_grouped_analytics.columns}
+                display_df_analytics = df_grouped_analytics[list(existing_display_columns.keys())].copy()
+                display_df_analytics.rename(columns=existing_display_columns, inplace=True)
+
+                # --- Formatting ---
+                # Format percentages (check if columns exist first)
+                if "SQL Success %" in display_df_analytics.columns:
+                     display_df_analytics["SQL Success %"] = display_df_analytics["SQL Success %"].apply(lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A")
+                if "LLM/Graph Error %" in display_df_analytics.columns:
+                     display_df_analytics["LLM/Graph Error %"] = display_df_analytics["LLM/Graph Error %"].apply(lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A")
+                # Format floats
+                if "Avg Duration (s)" in display_df_analytics.columns:
+                    display_df_analytics["Avg Duration (s)"] = display_df_analytics["Avg Duration (s)"].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "N/A")
+                if "Avg Gen Tokens" in display_df_analytics.columns:
+                    display_df_analytics["Avg Gen Tokens"] = display_df_analytics["Avg Gen Tokens"].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+                # Handle potential None/NaN in Pred Tokens before formatting
+                if "Avg Pred Tokens" in display_df_analytics.columns:
+                    display_df_analytics["Avg Pred Tokens"] = display_df_analytics["Avg Pred Tokens"].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+
+                st.dataframe(display_df_analytics)
+
+        except Exception as e:
+            st.error(f"Error processing or displaying grouped data: {e}")
+            logger.error("Error processing grouped stats DataFrame or creating charts", exc_info=True)
+
+    elif grouped_stats_analytics == []: # Backend function returned an empty list correctly
+         st.info(f"No data found matching the criteria: {filter_desc_analytics}, grouped by {selected_grouping_analytics}.")
+    else: # Backend function returned None (error) or unexpected type
+        st.error("An error occurred while retrieving valid grouped statistics.")
+
+    # --- >>> 3. Performance by Dataset and Prompt Type <<< ---
+    st.subheader("Performance by Dataset and Prompt Type")
+    stats_by_dataset_prompt = get_stats_by_group(group_by_fields=["dataset", "prompt_type"])
+
+    if stats_by_dataset_prompt:
+        df_dataset_prompt = pd.json_normalize(stats_by_dataset_prompt)
+        df_dataset_prompt.rename(columns={
+            '_id.dataset': 'Dataset',
+            '_id.prompt_type': 'Prompt Type',
+            'count': 'Runs',
+            'avg_duration_sec': 'Avg Duration (s)',
+            'avg_total_gen_tokens': 'Avg Gen Tokens',
+            'avg_total_pred_tokens': 'Avg Pred Tokens', # Will be null for non-structured
+            'llm_graph_error_rate': 'LLM/Graph Error %',
+            'sql_exec_success_rate': 'SQL Success %'
+        }, inplace=True)
+
+        # Format percentages and numeric values
+        df_dataset_prompt['LLM/Graph Error %'] = (df_dataset_prompt['LLM/Graph Error %'] * 100).map('{:.1f}%'.format)
+        df_dataset_prompt['SQL Success %'] = (df_dataset_prompt['SQL Success %'] * 100).map('{:.1f}%'.format)
+        df_dataset_prompt['Avg Duration (s)'] = df_dataset_prompt['Avg Duration (s)'].map('{:.2f}'.format)
+        df_dataset_prompt['Avg Gen Tokens'] = df_dataset_prompt['Avg Gen Tokens'].map('{:.1f}'.format)
+        # Handle potential None for prediction tokens before formatting
+        df_dataset_prompt['Avg Pred Tokens'] = df_dataset_prompt['Avg Pred Tokens'].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+
+
+        # Display as a table
+        st.dataframe(df_dataset_prompt[[
+            'Dataset', 'Prompt Type', 'Runs', 'Avg Duration (s)',
+            'Avg Gen Tokens', 'Avg Pred Tokens', 'SQL Success %', 'LLM/Graph Error %'
+        ]], hide_index=True)
+
+        # Optional: Add a grouped bar chart (might get crowded)
+        # Example: Charting SQL Success Rate
+        try:
+            # Convert percentage string back to float for charting
+            df_dataset_prompt['SQL Success Rate (Float)'] = df_dataset_prompt['SQL Success %'].str.rstrip('%').astype('float') / 100.0
+            chart_data = df_dataset_prompt.pivot(index='Prompt Type', columns='Dataset', values='SQL Success Rate (Float)')
+            if not chart_data.empty:
+                 st.bar_chart(chart_data)
+                 st.caption("Chart: SQL Execution Success Rate by Prompt Type and Dataset")
+        except Exception as chart_e:
+             logger.warning(f"Could not generate bar chart for prompt/dataset stats: {chart_e}")
+
+    else:
+        st.warning("Could not fetch statistics grouped by dataset and prompt type.")
+    # --- >>> End Section 3 <<< ---
+
+    st.divider()
+
+    # --- 4. Performance by Dataset and LLM ---
+    st.subheader("Performance by Dataset and LLM")
+    stats_by_dataset_llm = get_stats_by_group(group_by_fields=["dataset", "llm"])
+
+    if stats_by_dataset_llm:
+        df_dataset_llm = pd.json_normalize(stats_by_dataset_llm)
+        df_dataset_llm.rename(columns={
+            '_id.dataset': 'Dataset',
+            '_id.llm': 'LLM',
+            'count': 'Runs',
+            'avg_duration_sec': 'Avg Duration (s)',
+            'avg_total_gen_tokens': 'Avg Gen Tokens',
+            'avg_total_pred_tokens': 'Avg Pred Tokens',
+            'llm_graph_error_rate': 'LLM/Graph Error %',
+            'sql_exec_success_rate': 'SQL Success %'
+        }, inplace=True)
+
+        # Format percentages and numeric values
+        df_dataset_llm['LLM/Graph Error %'] = (df_dataset_llm['LLM/Graph Error %'] * 100).map('{:.1f}%'.format)
+        df_dataset_llm['SQL Success %'] = (df_dataset_llm['SQL Success %'] * 100).map('{:.1f}%'.format)
+        df_dataset_llm['Avg Duration (s)'] = df_dataset_llm['Avg Duration (s)'].map('{:.2f}'.format)
+        df_dataset_llm['Avg Gen Tokens'] = df_dataset_llm['Avg Gen Tokens'].map('{:.1f}'.format)
+        df_dataset_llm['Avg Pred Tokens'] = df_dataset_llm['Avg Pred Tokens'].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+
+        st.dataframe(df_dataset_llm[[
+            'Dataset', 'LLM', 'Runs', 'Avg Duration (s)',
+            'Avg Gen Tokens', 'Avg Pred Tokens', 'SQL Success %', 'LLM/Graph Error %'
+        ]], hide_index=True)
+
+        # Optional: Grouped bar chart
+        try:
+            df_dataset_llm['SQL Success Rate (Float)'] = df_dataset_llm['SQL Success %'].str.rstrip('%').astype('float') / 100.0
+            chart_data_llm = df_dataset_llm.pivot(index='LLM', columns='Dataset', values='SQL Success Rate (Float)')
+            if not chart_data_llm.empty:
+                st.bar_chart(chart_data_llm)
+                st.caption("Chart: SQL Execution Success Rate by LLM and Dataset")
+        except Exception as chart_e:
+             logger.warning(f"Could not generate bar chart for llm/dataset stats: {chart_e}")
+
+    else:
+        st.warning("Could not fetch statistics grouped by dataset and LLM.")
+
+
 
 
 # --- Tab 3: Run History ---

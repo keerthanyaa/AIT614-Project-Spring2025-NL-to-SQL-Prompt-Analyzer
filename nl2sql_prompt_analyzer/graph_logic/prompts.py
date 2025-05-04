@@ -12,7 +12,11 @@ def fetch_zero_shot_prompt(state: GraphState) -> GraphState:
     """Generates the prompt for the Zero-Shot strategy."""
     logger.debug("Entering generate_zero_shot_prompt node.")
     nl_query = state['nl_query']
-    prompt = f"Translate the following question to SQL: {nl_query}. ONLY output the SQL query. Do not include explanations, markdown formatting (like ```sql), or any other text."
+    prompt = (
+        "Write a valid SQL query that answers the following question as accurately as possible.\n"
+        f"{nl_query}\n"
+        "Output only the SQL statement, without any explanation, markdown, or formatting."
+    )
     logger.info("Generated Zero-Shot prompt.")
     return {"final_prompt": prompt}
 
@@ -26,10 +30,26 @@ def fetch_few_shot_prompt(state: GraphState) -> GraphState:
     nl_query = state['nl_query']
     # Placeholder examples - ideally fetched based on dataset context or config
     examples = (
-        "# Example Q: List all customer names\nSELECT name FROM customers;\n"
-        "# Example Q: Count orders for user 5\nSELECT COUNT(*) FROM orders WHERE user_id = 5;\n"
-    )
-    prompt = f"{examples}\n# Translate the following question to SQL: {nl_query}. ONLY output the SQL query. Do not include explanations, markdown formatting (like ```sql), or any other text."
+    "# Example Q: What are the model names of all active products?\n"
+    "# SQL: SELECT ModelName FROM Products WHERE IsActive = TRUE;\n\n"
+    "# Example Q: List the names and categories of features that cost more than $500.\n"
+    "# SQL: SELECT FeatureName, FeatureType FROM Features WHERE AdditionalCost > 500;\n\n"
+    "# Example Q: Show the model name and body style for products launched after 2021.\n"
+    "# SQL: SELECT ModelName, BodyStyle FROM Products WHERE LaunchYear > 2021;\n\n"
+    "# Example Q: How many products have the body style 'SUV'?\n"
+    "# SQL: SELECT COUNT(*) FROM Products WHERE BodyStyle = 'SUV';\n\n"
+    "# Example Q: How many service records are marked as 'Completed'?\n"
+    "# SQL: SELECT COUNT(*) FROM ServiceRecords WHERE Status = 'Completed';\n\n"
+    "# Example Q: How many customers have the 'Gold' loyalty tier?\n"
+    "# SQL: SELECT COUNT(*) FROM Customers WHERE LoyaltyTier = 'Gold';\n\n"
+    "# Example Q: How many features have an additional cost?\n"
+    "# SQL: SELECT COUNT(*) FROM Features WHERE AdditionalCost > 0;\n\n"
+    "# Example Q: How many vehicles are currently in inventory?\n"
+    "# SQL: SELECT COUNT(*) FROM Vehicles WHERE CurrentStatus = 'Inventory';\n\n"
+    "# Example Q: How many loyalty points transactions are of type 'Redeemed'?\n"
+    "# SQL: SELECT COUNT(*) FROM LoyaltyTransactions WHERE TransactionType = 'Redeemed';"
+)
+    prompt = f"{examples}\n# Translate the following question to SQL: {nl_query}. ONLY output the SQL query. Output only the SQL statement, without any explanation, markdown, or formatting."
     logger.info("Generated Few-Shot prompt (with placeholder examples).")
     return {"final_prompt": prompt}
 
