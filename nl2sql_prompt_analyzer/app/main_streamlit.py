@@ -131,6 +131,7 @@ with tab1:
             if current_ground_truth: logger.info("Ground Truth SQL provided (for later evaluation).")
 
             start_time = time.perf_counter()
+            
 
             try:
                 # --- 1. Call the backend LangGraph workflow ---
@@ -201,6 +202,15 @@ with tab1:
                     "exec_acc_score": exec_acc_score, "duration_sec": duration, "graph_error": graph_error,
                     "sql_exec_error": st.session_state.sql_exec_error # Log execution error/status
                 }
+
+                if graph_result_state:
+                     run_context_for_log["prediction_prompt_tokens"] = graph_result_state.get("prediction_prompt_tokens")
+                     run_context_for_log["prediction_completion_tokens"] = graph_result_state.get("prediction_completion_tokens")
+                     run_context_for_log["prediction_total_tokens"] = graph_result_state.get("prediction_total_tokens")
+                     run_context_for_log["generation_prompt_tokens"] = graph_result_state.get("generation_prompt_tokens")
+                     run_context_for_log["generation_completion_tokens"] = graph_result_state.get("generation_completion_tokens")
+                     run_context_for_log["generation_total_tokens"] = graph_result_state.get("generation_total_tokens")
+
                 # --- Add execution data if successful and convert dates ---
                 sql_result_data_for_log = None
                 if st.session_state.sql_exec_result_df is not None and st.session_state.sql_exec_error is None:
@@ -287,6 +297,29 @@ with tab1:
         st.metric("Execution Accuracy (ExecAcc) Score", st.session_state.last_exec_acc_score)
         st.caption(f"Total processing time: {st.session_state.last_duration:.3f} seconds")
 
+        # --- >>> Display Token Usage <<< ---
+        st.markdown("**Token Usage:**")
+        token_info_lines = []
+        # Check for prediction tokens (only relevant for structured path)
+        pred_prompt = st.session_state.current_query_context.get("prediction_prompt_tokens")
+        pred_compl = st.session_state.current_query_context.get("prediction_completion_tokens")
+        pred_total = st.session_state.current_query_context.get("prediction_total_tokens")
+        if pred_total is not None: # Display only if prediction step ran and returned tokens
+             token_info_lines.append(f"- Table Prediction Step: Prompt={pred_prompt}, Completion={pred_compl}, Total={pred_total}")
+
+        # Check for generation tokens
+        gen_prompt = st.session_state.current_query_context.get("generation_prompt_tokens")
+        gen_compl = st.session_state.current_query_context.get("generation_completion_tokens")
+        gen_total = st.session_state.current_query_context.get("generation_total_tokens")
+        if gen_total is not None:
+             token_info_lines.append(f"- SQL Generation Step: Prompt={gen_prompt}, Completion={gen_compl}, Total={gen_total}")
+
+        if token_info_lines:
+            st.caption("\n".join(token_info_lines))
+        else:
+            st.caption("Token usage information not available.")
+        # --- >>> End Token Usage Display <<< ---
+        
         # --- >>> Display SQL Execution Results <<< ---
         st.markdown("---")
         st.subheader("SQL Execution Result")

@@ -21,6 +21,14 @@ class GraphState(TypedDict):
     relevant_table_names: Optional[List[str]]
     relevant_schema_metadata: Optional[Dict[str, Any]] # Stores schema dicts for relevant tables
 
+    # Token Usage Keys
+    prediction_prompt_tokens: Optional[int]
+    prediction_completion_tokens: Optional[int]
+    prediction_total_tokens: Optional[int]
+    generation_prompt_tokens: Optional[int]
+    generation_completion_tokens: Optional[int]
+    generation_total_tokens: Optional[int]
+
     # General intermediate results
     final_prompt: Optional[str] # The prompt sent to the main SQL generation LLM
 
