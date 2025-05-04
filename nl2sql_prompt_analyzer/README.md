@@ -112,6 +112,12 @@ To test the mongo-db connection :
 python -m storage.test_mongo_connection
 ```
 
+To run the Scripts of postgresql : 
+
+```bash
+python scripts/create_postgres_dbs.py
+```
+
 ## Working Components
 
 This section describes parts of the application that are implemented and functional, even if some underlying operations (like LLM calls or DB saves) are currently simulated.
