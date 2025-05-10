@@ -227,4 +227,4 @@ This project was inspired by my experience working at [AIqwip](https://aiqwip.co
 
 I would also like to thank Professor Dr. Bin Duan and TA Zijie He for their invaluable guidance and support throughout the development of this project.
 
-- Keerthanyaa Nirmalkumar
+~ Keerthanyaa Nirmalkumar
